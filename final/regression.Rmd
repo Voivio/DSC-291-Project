@@ -1,0 +1,280 @@
+---
+title: "Regression analysis"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+bibliography: ref.bib
+---
+
+```{r}
+df <- read.csv(file = "data_econ.csv")
+head(df)
+```
+
+# Correlation of treatments
+
+We first check the independence between the treatments. This serves as a sanity check as the treatments are assigned in a random manner.
+
+```{r}
+# remove the first two column
+R.hat <- cor(df[df["treatment"] == 1, c("ask", "ratio", "size")]) 
+print(R.hat)
+```
+
+# Using Probit model to regress the response probability with treatments (repeats [\@karlan2007original])
+
+Check the marginal effects over all samples as in [\@karlan2007original], Table 3.
+
+```{r}
+library("mfx")
+
+model.probit <- probitmfx(gave ~ treatment,
+    data = df)
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df)
+model.probit
+```
+
+Check the marginal effects over samples who Already Gave in 2005.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df[df["dormant"] == 1,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df[df["dormant"] == 1,])
+model.probit
+```
+
+Check the marginal effects over samples who Had Not Given Yet in 2005.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df[df["dormant"] == 0,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df[df["dormant"] == 0,])
+model.probit
+```
+
+Check the marginal effects over samples who Below Median Prior Donor ($<$\$35).
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df[df["ltmedMRA"] == 1,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df[df["ltmedMRA"] == 1,])
+model.probit
+```
+
+Check the marginal effects over samples who Above Median Prior Donor ($\ge$\$35)
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df[df["ltmedMRA"] == 0,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df[df["ltmedMRA"] == 0,])
+model.probit
+```
+
+# Using OLM to regress the amount given with treatments (repeats [\@karlan2007original])
+
+This section tries to regress the amount given with respect to the treatments. This part repeats the results in [\@karlan2007original], Table 4. The computation is too long so only a small portion is reproduced.
+
+```{r}
+model.lm <- lm(amount ~ treatment.fac, data = df[df["gave"] == 1,])
+summary(model.lm)
+
+model.lm <- lm(amount ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100, data = df[df["gave"] == 1,])
+summary(model.lm)
+```
+
+# Using the Probit model to check the response rate more subgroups (new insights)
+
+```{r}
+df.updated <- read.csv(file = "AER merged.csv")
+# get median of median_hhincome, ave_hh_sz
+median.mhi <- median(df.updated[,"median_hhincome"], na.rm = TRUE)
+median.ahs <- median(df.updated[,"ave_hh_sz"], na.rm = TRUE)
+# binarized subgroups based on median
+df.updated["high_income"] <- as.integer(df.updated[,"median_hhincome"] >= median.mhi)
+df.updated["large_family"] <- as.integer(df.updated[,"ave_hh_sz"] >= median.ahs)
+# preview part of the data
+head(df.updated)
+```
+
+```{r}
+hist(df.updated$median_hhincome, main="", xlab="Median household income", freq = FALSE)
+abline(v=median.mhi, col="red", lwd = 2)
+hist(df.updated$ave_hh_sz, main="", xlab="Average household size", freq = FALSE, breaks = 20)
+abline(v=median.ahs, col="red", lwd = 2)
+```
+
+## Relationship between median household income and average household size
+
+```{r}
+
+plot(ave_hh_sz ~ median_hhincome, data = df.updated, col = "grey", pch = 20,
+     xlab = "Median household income (MHI)", ylab = "Average household size (AHS)")
+fit_1 = lm(ave_hh_sz ~ median_hhincome, data = df.updated)
+abline(fit_1, col = "darkorange", lwd = 3)
+
+
+model.mhi.ahs <- lm(ave_hh_sz ~ median_hhincome, data = df.updated)
+plot(model.mhi.ahs, which=1)
+```
+
+## Gender
+
+Female, response rate.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df.updated[df.updated["female"] == 1,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df.updated[df.updated["female"] == 1,])
+model.probit
+```
+
+Male, response rate.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df.updated[df.updated["female"] == 0,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df.updated[df.updated["female"] == 0,])
+model.probit
+```
+
+## Median Household Income
+
+Low median household income, response rate.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df.updated[df.updated["high_income"] == 0,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df.updated[df.updated["high_income"] == 0,])
+model.probit
+```
+
+High median household income, response rate.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df.updated[df.updated["high_income"] == 1,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df.updated[df.updated["high_income"] == 1,])
+model.probit
+```
+
+## Average household size
+
+Large household size, response rate.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df.updated[df.updated["large_family"] == 1,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df.updated[df.updated["large_family"] == 1,])
+model.probit
+```
+
+Small household size, response rate.
+
+```{r}
+model.probit <- probitmfx(gave ~ treatment,
+    data = df.updated[df.updated["large_family"] == 0,])
+model.probit
+
+model.probit <- probitmfx(gave ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100,
+    data = df.updated[df.updated["large_family"] == 0,])
+model.probit
+```
+
+# Using OLM to regress the amount given with treatments (new insights)
+
+## Gender
+
+Male.
+
+```{r}
+model.lm <- lm(amount ~ treatment, data = df.updated[df.updated["female"] == 0,])
+summary(model.lm)
+
+model.lm <- lm(amount ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100, data = df.updated[df.updated["female"] == 0,])
+summary(model.lm)
+```
+
+Female.
+
+```{r}
+model.lm <- lm(amount ~ treatment, data = df.updated[df.updated["female"] == 1,])
+summary(model.lm)
+
+model.lm <- lm(amount ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100, data = df.updated[df.updated["female"] == 1,])
+summary(model.lm)
+```
+
+## Median Household Income
+
+Low MHI.
+
+```{r}
+model.lm <- lm(amount ~ treatment, data = df.updated[df.updated["high_income"] == 0,])
+summary(model.lm)
+
+model.lm <- lm(amount ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100, data = df.updated[df.updated["high_income"] == 0,])
+summary(model.lm)
+```
+
+High MHI.
+
+```{r}
+model.lm <- lm(amount ~ treatment, data = df.updated[df.updated["high_income"] == 1,])
+summary(model.lm)
+
+model.lm <- lm(amount ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100, data = df.updated[df.updated["high_income"] == 1,])
+summary(model.lm)
+```
+
+## Average Household Size
+
+Low AHS,
+
+```{r}
+model.lm <- lm(amount ~ treatment, data = df.updated[df.updated["large_family"] == 0,])
+summary(model.lm)
+
+model.lm <- lm(amount ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100, data = df.updated[df.updated["large_family"] == 0,])
+summary(model.lm)
+```
+
+High AHS.
+
+```{r}
+model.lm <- lm(amount ~ treatment, data = df.updated[df.updated["large_family"] == 1,])
+summary(model.lm)
+
+model.lm <- lm(amount ~ treatment + askd2 + askd3 + ratio2 + ratio3 + size25 + size50 + size100, data = df.updated[df.updated["large_family"] == 1,])
+summary(model.lm)
+```
